@@ -1,83 +1,150 @@
-/*
- Reads an analog input pin, maps the result to a range from 0 to 255
- and uses the result to set the pulsewidth modulation (PWM) of an output pin.
- Also prints the results to the serial monitor.
-
- The circuit:
- * potentiometer connected to analog pin 0.
-   Center pin of the potentiometer goes to the analog pin.
-   side pins of the potentiometer go to +5V and ground
- * LED connected from digital pin 9 to ground
-
- */
- 
-#include <Stepper.h>
-
-// change this to fit the number of steps per revolution
-// for your motor
-const int stepsPerRevolution = 2036;
-// the number of the pushbutton pin
-const int buttonPin = 2;
-// initialize the stepper library on pins 8 through 11:
-Stepper myStepper(stepsPerRevolution, 10, 11, 12, 13);
-// variable for reading the pushbutton status
-int buttonState = 0;
-// These constants won't change.  They're used to give names
-// to the pins used:
-const int analogInPin = A0;  // Analog input pin that the potentiometer is attached to
-const int analogOutPin = 9; // Analog output pin that the LED is attached to
-
-int sensorValue = 0;        // value read from the pot
-int outputValue = 0;        // value output to the PWM (analog out)
-int on = 0; //This tells the status 
-void setup() {
-  // set the speed at 9 rpm:
-  myStepper.setSpeed(9);
+#include <Scheduler.h>
+//The pin for each input to the stepper motor
+#define IN1  10
+#define IN2  11
+#define IN3  12
+#define IN4  13
+int Steps = 0;              //Counts the number of times the motor goes through rotation
+boolean Direction = true;   //Using boolean logic to determine the direction
+unsigned long last_time;    //Holds the last time the loop completed
+unsigned long currentMillis;//Holds current time of the loop
+int steps_left=4095;        //How many steps for the step motor to take
+long time;
+const int analogInPin = A0; //Analog input pin that the potentiometer is attached to
+const int analogOutPin = 9; //Analog output pin that the LED is attached to
+const int buttonPin = 8;
+int sensorValue = 0;        //Value read from the pot
+int outputValue = 0;        //Output to the PWM (analog out) used for testing purposes.
+int buttonState = 0;        //Handles the state of the button
+void setup()
+{
   // initialize the pushbutton pin as an input:
   pinMode(buttonPin, INPUT);
-  // initialize serial communications at 9600 bps:
+  pinMode(IN1, OUTPUT); 
+  pinMode(IN2, OUTPUT); 
+  pinMode(IN3, OUTPUT); 
+  pinMode(IN4, OUTPUT);
   Serial.begin(9600);
 }
-
-void loop() {
+void loop()
+{
   // read the state of the pushbutton value:
   buttonState = digitalRead(buttonPin);
   // check if the pushbutton is pressed.
   // if it is, the buttonState is HIGH:
+  delay(200);
   if (buttonState == HIGH) {
-    do{
-    Serial.println("shades down");
-    myStepper.step(stepsPerRevolution);
-    }while(sensorValue > 50);
-    
+  while(1){
+  while(steps_left>0)
+  {
+    currentMillis = micros();
+    if(currentMillis-last_time>=1000)
+    {
+      stepper(1);
+      time=time+micros()-last_time;
+      last_time=micros();
+      steps_left--;
+    }
   }
-  // read the analog in value:
+  //Serial.println(time);
+  Direction=!Direction;
+  steps_left=2048;
+  }
+}
+}
+
+void stepper(int xw)
+{
+  for (int x=0;x<xw;x++)
+  {
+    switch(Steps)
+    {
+      case 0:
+      //Serial.println("Here 0");
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, HIGH);
+      break;
+      case 1:
+      //Serial.println("Here 1");
+      digitalWrite(IN1, LOW); 
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, HIGH);
+      digitalWrite(IN4, HIGH);
+      break; 
+      case 2:
+      //Serial.println("Here 2");
+      digitalWrite(IN1, LOW); 
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, HIGH);
+      digitalWrite(IN4, LOW);
+      break; 
+      case 3:
+      //Serial.println("Here 3");
+      digitalWrite(IN1, LOW); 
+      digitalWrite(IN2, HIGH);
+      digitalWrite(IN3, HIGH);
+      digitalWrite(IN4, LOW);
+      break;
+      case 4:
+      //Serial.println("Here 4");
+      digitalWrite(IN1, LOW); 
+      digitalWrite(IN2, HIGH);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, LOW);
+      break; 
+      case 5:
+      //Serial.println("Here 5");
+      digitalWrite(IN1, HIGH); 
+      digitalWrite(IN2, HIGH);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, LOW);
+      break; 
+      case 6:
+      //Serial.println("Here 6");
+      digitalWrite(IN1, HIGH); 
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, LOW);
+      break; 
+      case 7:
+      //Serial.println("Here 7");
+      digitalWrite(IN1, HIGH); 
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, HIGH);
+      break; 
+      default:
+      //Serial.println("here");
+      digitalWrite(IN1, LOW); 
+      digitalWrite(IN2, LOW);
+      digitalWrite(IN3, LOW);
+      digitalWrite(IN4, LOW);
+      break;
+    }
+    SetDirection();
+  }
+} 
+void SetDirection()
+{
+  //Calls function that reads sensor and returns sensorValue.
+  sensorValue = readSense();
+  //Serial.println(sensorValue);
+  //Conditional statement that checks for a low light ADC reading.
+  if(sensorValue > 150){ Steps++;}
+  if(sensorValue < 150){ Steps--; }
+  //These set of conditional statements keep the motor from continuously
+  //running in one direction.
+  if(Steps>7){Steps=0;}
+  if(Steps<0){Steps=7; }
+}
+int readSense()
+{
   sensorValue = analogRead(analogInPin);
-  // map it to the range of the analog out:
+  //map it to the range of the analog out:
   outputValue = map(sensorValue, 0, 1023, 0, 255);
-  // change the analog out value:
+  //change the LED light level based on the rotation of the motor
   analogWrite(analogOutPin, outputValue);
-
-  // print the results to the serial monitor:
-  Serial.print("sensor = ");
-  Serial.print(sensorValue);
-  Serial.print("\t output = ");
-  Serial.println(outputValue);
-
-  if(sensorValue > 50){
-    // step one revolution  in one direction:
-    Serial.println("clockwise");
-    myStepper.step(stepsPerRevolution);
-    //delay(500);
-  }
-  if(sensorValue < 50){
-    // step one revolution in the other direction:
-    Serial.println("counterclockwise");
-    myStepper.step(-(stepsPerRevolution));
-    //delay(500);
-  }
-  // wait 2 milliseconds before the next loop
-  // for the analog-to-digital converter to settle
-  // after the last reading:
-  delay(2);
+  return sensorValue;
 }
